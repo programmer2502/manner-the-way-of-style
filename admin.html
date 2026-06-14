@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manner Admin Dashboard - Stock Management</title>
+  <meta name="description" content="Manage products catalog, sizes, colors, and live stock limits for the Manner clothing store.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Admin Dashboard Specific Layout */
+    body {
+      background-color: #f3f3f3;
+      padding-top: 100px;
+    }
+    
+    .admin-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+    
+    .admin-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .admin-title-wrap h1 {
+      font-family: var(--font-display);
+      font-size: 36px;
+      font-weight: 500;
+      color: var(--near-black);
+    }
+    
+    /* Stats Widgets */
+    .admin-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 24px 32px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.03);
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--near-black);
+    }
+    .stat-card.alert::before {
+      background: #e74c3c;
+    }
+    .stat-card.accent-stat::before {
+      background: var(--accent);
+    }
+    
+    .stat-card-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gray-mid);
+    }
+    
+    .stat-card-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--near-black);
+      letter-spacing: -0.02em;
+    }
+    
+    /* Catalog Section */
+    .catalog-panel {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid rgba(0,0,0,0.03);
+      padding: 32px;
+      margin-bottom: 60px;
+    }
+    
+    .catalog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      gap: 16px;
+    }
+    
+    .catalog-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 500;
+    }
+    
+    .catalog-actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .admin-search-input {
+      padding: 10px 18px;
+      border: 1.5px solid var(--bg-alt);
+      border-radius: var(--radius-pill);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+      width: 240px;
+      transition: all var(--fast);
+    }
+    .admin-search-input:focus {
+      border-color: rgba(0,0,0,0.15);
+      width: 280px;
+    }
+    
+    /* Responsive Table Styles */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    
+    .admin-table th {
+      padding: 16px 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gray-mid);
+      border-bottom: 2px solid var(--bg-alt);
+    }
+    
+    .admin-table td {
+      padding: 16px 20px;
+      font-size: 13px;
+      color: var(--near-black);
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      vertical-align: middle;
+    }
+    
+    .admin-table tbody tr:hover {
+      background-color: #fafafa;
+    }
+    
+    .table-thumbnail {
+      width: 52px;
+      height: 64px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--bg-alt);
+    }
+    
+    .table-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .prod-details {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .prod-name-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .prod-cat-badge {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-light);
+    }
+    
+    .stock-badge-pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: center;
+    }
+    .stock-badge-pill.ok {
+      background: rgba(46, 204, 113, 0.1);
+      color: #27ae60;
+    }
+    .stock-badge-pill.warning {
+      background: rgba(230, 126, 34, 0.1);
+      color: #d35400;
+    }
+    .stock-badge-pill.danger {
+      background: rgba(231, 76, 60, 0.1);
+      color: #c0392b;
+    }
+    
+    .options-badges {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 220px;
+    }
+    .options-badges-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: center;
+    }
+    .options-title-small {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--gray-mid);
+      text-transform: uppercase;
+    }
+    .badge-tag {
+      font-size: 10px;
+      font-weight: 500;
+      padding: 2px 6px;
+      background: var(--bg-alt);
+      border-radius: 4px;
+    }
+    .color-swatch-mini {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.1);
+      display: inline-block;
+    }
+    
+    .table-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-table-action {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      transition: all var(--fast) var(--ease);
+    }
+    .btn-table-action.edit {
+      border: 1.5px solid var(--near-black);
+      color: var(--near-black);
+    }
+    .btn-table-action.edit:hover {
+      background: var(--near-black);
+      color: var(--white);
+    }
+    .btn-table-action.delete {
+      border: 1.5px solid #e74c3c;
+      color: #e74c3c;
+    }
+    .btn-table-action.delete:hover {
+      background: #e74c3c;
+      color: var(--white);
+    }
+    
+    /* Form Modal Styles */
+    .admin-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(8px);
+      z-index: 3000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--mid) var(--ease);
+    }
+    .admin-modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .admin-modal {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -46%) scale(0.97);
+      width: 90%;
+      max-width: 640px;
+      background: var(--white);
+      z-index: 3001;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xl);
+      opacity: 0;
+      pointer-events: none;
+      transition: all var(--mid) var(--ease);
+      display: flex;
+      flex-direction: column;
+      max-height: 85vh;
+    }
+    .admin-modal.active {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .admin-modal-header {
+      padding: 24px 32px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .admin-modal-title {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 500;
+    }
+    .admin-modal-close {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--bg-alt);
+      color: var(--gray-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--fast);
+    }
+    .admin-modal-close:hover {
+      background: var(--near-black);
+      color: var(--white);
+    }
+    
+    .admin-modal-body {
+      padding: 32px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    /* Form grids */
+    .form-group {
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gray-mid);
+    }
+    .form-input, .form-select, .form-textarea {
+      padding: 10px 16px;
+      border: 1.5px solid var(--bg-alt);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-body);
+      font-size: 13px;
+      outline: none;
+      transition: border-color var(--fast);
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: rgba(0,0,0,0.15);
+    }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    
+    /* Option selections checkboxes */
+    .choices-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 6px 0;
+    }
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .checkbox-wrap input {
+      width: 16px; height: 16px;
+      cursor: pointer;
+    }
+    
+    .admin-modal-footer {
+      padding: 20px 32px;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      background: var(--bg);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      border-bottom-left-radius: var(--radius-lg);
+      border-bottom-right-radius: var(--radius-lg);
+    }
+    .btn-form-save {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 24px;
+    }
+    .btn-form-cancel {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 24px;
+      border: 1.5px solid var(--bg-alt);
+      border-radius: var(--radius-pill);
+      color: var(--gray-mid);
+      transition: all var(--fast);
+    }
+    .btn-form-cancel:hover {
+      background: var(--bg-alt);
+      color: var(--near-black);
+    }
+    
+    @media (max-width: 1024px) {
+      .admin-stats-grid { grid-template-columns: 1fr; gap: 16px; }
+      body { padding-top: 80px; }
+    }
+    @media (max-width: 768px) {
+      .admin-header-row { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .catalog-header { flex-direction: column; align-items: flex-start; }
+      .catalog-actions-bar { width: 100%; justify-content: space-between; }
+      .admin-search-input { width: 100%; }
+      .form-row-2 { grid-template-columns: 1fr; gap: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Announcement Bar -->
+  <div class="announcement-bar">
+    <span>MANNER ADMINISTRATIVE SUITE &nbsp;—&nbsp; <strong>Stock & Catalog Console</strong></span>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <div class="nav-left">
+        <a href="index.html" class="nav-link">← Return to Storefront</a>
+      </div>
+      <a href="#" class="nav-logo">MANNER ADMIN</a>
+      <div class="nav-right">
+        <span class="nav-link" style="font-weight: 600; color: var(--accent);">System Live ✓</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Backend Connection Status Card -->
+    <div style="background:#fff; border-radius:var(--radius-lg); padding:20px 32px; box-shadow:var(--shadow-sm); margin-bottom:32px; border:1px solid rgba(0,0,0,0.03);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+        <div>
+          <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:4px;">Manner Backend</h3>
+          <p id="supabase-status-text" style="font-size:12px; color:var(--gray-mid);">Connecting to backend server...</p>
+        </div>
+        <div style="display:flex; gap:12px;">
+          <button class="btn-primary" id="btn-admin-logout" style="font-size:11px; padding:8px 16px; display:none; background:#e74c3c;">Sign Out</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="admin-header-row">
+      <div class="admin-title-wrap">
+        <h1>Dashboard Overview</h1>
+        <p class="section-label" style="margin-bottom: 0;">— Live Inventory Control</p>
+      </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="admin-stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="stat-card">
+        <span class="stat-card-label">Total Products</span>
+        <span class="stat-card-value" id="stats-total-products">0</span>
+      </div>
+      <div class="stat-card accent-stat">
+        <span class="stat-card-label">Total Stock Units</span>
+        <span class="stat-card-value" id="stats-total-stock">0</span>
+      </div>
+      <div class="stat-card alert" id="out-of-stock-card">
+        <span class="stat-card-label">Out of Stock</span>
+        <span class="stat-card-value" id="stats-out-of-stock">0</span>
+      </div>
+      <div class="stat-card" style="cursor:pointer;" onclick="document.getElementById('orders-panel').scrollIntoView({behavior:'smooth'})">
+        <span class="stat-card-label">Total Orders</span>
+        <span class="stat-card-value" id="stats-total-orders">0</span>
+        <span style="font-size:11px;color:var(--gray-mid);margin-top:4px;">Revenue: <strong id="stats-revenue">₹0</strong></span>
+      </div>
+    </div>
+
+    <!-- Catalog table panel -->
+    <div class="catalog-panel">
+      <div class="catalog-header">
+        <h2 class="catalog-title">Product Catalog</h2>
+        <div class="catalog-actions-bar">
+          <input type="text" placeholder="Search catalog..." class="admin-search-input" id="admin-search">
+          <button class="btn-outline" id="btn-delete-category" style="font-size:12px; padding: 10px 18px; border-color: #e74c3c; color: #e74c3c; margin-right: 8px;">✕ Remove Category</button>
+          <button class="btn-primary" id="btn-add-product" style="font-size:12px; padding: 10px 18px;">+ Add Product</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="width: 80px;">Image</th>
+              <th>Product Details</th>
+              <th>Price</th>
+              <th>Stock Status</th>
+              <th>Options (Sizes & Colors)</th>
+              <th style="width: 160px; text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="admin-table-body">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Product Modal -->
+  <div class="admin-modal-overlay" id="form-modal-overlay"></div>
+  <div class="admin-modal" id="form-modal">
+    <div class="admin-modal-header">
+      <h3 class="admin-modal-title" id="form-modal-title">Add New Product</h3>
+      <button class="admin-modal-close" id="form-modal-close" aria-label="Close form">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="product-form" onsubmit="return false;">
+      <div class="admin-modal-body">
+        
+        <!-- Name -->
+        <div class="form-group">
+          <label class="form-label" for="form-name">Product Name</label>
+          <input type="text" id="form-name" class="form-input" required placeholder="e.g. Linen Tailored Trousers">
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label class="form-label" for="form-desc">Description</label>
+          <textarea id="form-desc" class="form-textarea" required placeholder="Describe materials, cut, styling recommendations..."></textarea>
+        </div>
+
+        <!-- Row: Category & Price -->
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label" for="form-category">Category</label>
+            <select id="form-category" class="form-select" required>
+              <option value="womens">Women's Wear</option>
+              <option value="mens">Men's Wear</option>
+              <option value="childrens">Children's Wear</option>
+              <option value="accessories">Accessories</option>
+              <option value="event">Event Wear</option>
+              <option value="custom_category">[Add Custom Category...]</option>
+            </select>
+            <div id="form-category-custom-wrap" style="display: none; margin-top: 8px;">
+              <input type="text" id="form-category-custom" class="form-input" placeholder="Type custom category name (e.g. Activewear)">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Image</label>
+            <div id="image-selection-container">
+              <div id="image-file-uploader-wrap">
+                <input type="file" id="form-image-file" accept="image/png, image/jpeg, image/webp" class="form-input" style="padding: 6px 12px;">
+              </div>
+              <div id="image-preset-selector-wrap" style="display: none;">
+                <select id="form-image-preset" class="form-select">
+                  <option value="product_palazzo.png">Palazzo (product_palazzo.png)</option>
+                  <option value="product_dress.png">Slip Dress (product_dress.png)</option>
+                  <option value="product_blazer.png">Boxy Blazer (product_blazer.png)</option>
+                  <option value="product_cargo.png">Cargo Pants (product_cargo.png)</option>
+                  <option value="product_chinos.png">Tapered Chinos (product_chinos.png)</option>
+                  <option value="product_shorts.png">Lounge Shorts (product_shorts.png)</option>
+                  <option value="product_midi.png">Midi Dress (product_midi.png)</option>
+                  <option value="product_vest.png">Puffer Vest (product_vest.png)</option>
+                  <option value="hero.png">Hero Cover (hero.png)</option>
+                  <option value="community.png">Community (community.png)</option>
+                </select>
+              </div>
+            </div>
+            <div id="form-image-preview-wrap" style="margin-top: 10px; display: none;">
+              <img id="form-image-preview" src="" alt="Product preview" style="width: 80px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--bg-alt);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Row: Prices -->
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label" for="form-price">Price (₹)</label>
+            <input type="number" id="form-price" class="form-input" required min="0" step="0.01" placeholder="e.g. 75.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-oldprice">Compare-At Price (₹, Optional)</label>
+            <input type="number" id="form-oldprice" class="form-input" min="0" step="0.01" placeholder="e.g. 100.00">
+          </div>
+        </div>
+
+        <!-- Row: Stock -->
+        <div class="form-group">
+          <label class="form-label" for="form-stock">Stock Limit</label>
+          <input type="number" id="form-stock" class="form-input" required min="0" value="10" placeholder="e.g. 15">
+        </div>
+
+        <!-- Sizes checkboxes -->
+        <div class="form-group">
+          <label class="form-label">Available Sizes</label>
+          <div class="choices-row" id="sizes-choices">
+            <label class="checkbox-wrap"><input type="checkbox" value="XS" checked> XS</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="S" checked> S</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="M" checked> M</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="L" checked> L</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="XL" checked> XL</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="XXL"> XXL</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="2T"> 2T</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="3T"> 3T</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="4T"> 4T</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="5"> 5</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="6"> 6</label>
+          </div>
+        </div>
+
+        <!-- Colors Checkboxes -->
+        <div class="form-group">
+          <label class="form-label">Available Colors</label>
+          <div class="choices-row" id="colors-choices">
+            <label class="checkbox-wrap"><input type="checkbox" value="Black|#000000" checked> <span class="color-swatch-mini" style="background:#000000;"></span> Black</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Off-White|#f5f5f0" checked> <span class="color-swatch-mini" style="background:#f5f5f0;"></span> Off-White</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Champagne|#f1e3d3"> <span class="color-swatch-mini" style="background:#f1e3d3;"></span> Champagne</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Charcoal|#3a3a3b"> <span class="color-swatch-mini" style="background:#3a3a3b;"></span> Charcoal</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Olive|#556b2f" checked> <span class="color-swatch-mini" style="background:#556b2f;"></span> Olive</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Khaki|#c3b091"> <span class="color-swatch-mini" style="background:#c3b091;"></span> Khaki</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Sage Green|#87a96b"> <span class="color-swatch-mini" style="background:#87a96b;"></span> Sage</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Heather Grey|#b3b3b3"> <span class="color-swatch-mini" style="background:#b3b3b3;"></span> Grey</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Navy|#000080"> <span class="color-swatch-mini" style="background:#000080;"></span> Navy</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Yellow|#ffd700"> <span class="color-swatch-mini" style="background:#ffd700;"></span> Yellow</label>
+            <label class="checkbox-wrap"><input type="checkbox" value="Rust|#b85d3b"> <span class="color-swatch-mini" style="background:#b85d3b;"></span> Rust</label>
+          </div>
+        </div>
+
+      </div>
+      <div class="admin-modal-footer">
+        <button type="button" class="btn-form-cancel" id="form-modal-cancel">Cancel</button>
+        <button type="submit" class="btn-primary btn-form-save" id="btn-submit-form">Save Product</button>
+      </div>
+    </form>
+  </div>
+
+
+  <script>
+    // --- Backend API Configuration ---
+    const API_BASE = '';
+    let adminToken = localStorage.getItem('manner_admin_token');
+    let products = [];
+    let editProductId = null;
+    let activeSearch = '';
+    let selectedImageFile = null;
+    let existingImageUrl = null;
+
+    async function apiFetch(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
+      if (adminToken) headers['Authorization'] = 'Bearer ' + adminToken;
+      const res = await fetch(API_BASE + path, { ...options, headers });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'HTTP ' + res.status);
+      return json;
+    }
+
+    const STANDARD_CATEGORIES = [
+      { value: 'womens',      label: "Women's Wear" },
+      { value: 'mens',        label: "Men's Wear" },
+      { value: 'childrens',   label: "Children's Wear" },
+      { value: 'accessories', label: 'Accessories' },
+      { value: 'event',       label: 'Event Wear' }
+    ];
+
+    function getCategoryLabel(cat) {
+      if (!cat) return 'Fashion';
+      const found = STANDARD_CATEGORIES.find(s => s.value === cat);
+      if (found) return found.label;
+      return cat.charAt(0).toUpperCase() + cat.slice(1);
+    }
+
+    function isLoggedIn() { return !!adminToken; }
+
+    async function checkAuth() {
+      if (!adminToken) { openLoginModal(); return false; }
+      try {
+        await apiFetch('/api/auth/me');
+        closeLoginModal();
+        document.getElementById('btn-admin-logout').style.display = 'inline-block';
+        document.getElementById('supabase-status-text').innerHTML =
+          '<span class="supabase-status-dot connected"></span> Manner Backend connected &mdash; Admin authenticated.';
+        return true;
+      } catch {
+        adminToken = null;
+        localStorage.removeItem('manner_admin_token');
+        openLoginModal();
+        return false;
+      }
+    }
+
+    function openLoginModal() {
+      document.getElementById('login-modal').classList.add('active');
+      document.getElementById('login-modal-overlay').classList.add('active');
+    }
+    function closeLoginModal() {
+      document.getElementById('login-modal').classList.remove('active');
+      document.getElementById('login-modal-overlay').classList.remove('active');
+    }
+
+    async function loadProducts() {
+      try {
+        const data = await apiFetch('/api/products');
+        products = data.products.map(p => ({
+          id: p.id, name: p.name, category: p.category,
+          categoryLabel: getCategoryLabel(p.category),
+          description: p.description,
+          price: parseFloat(p.price),
+          oldPrice: p.old_price ? parseFloat(p.old_price) : null,
+          image: p.image_url,
+          sizes: p.sizes || [], colors: p.colors || [],
+          stock: parseInt(p.stock),
+          bestseller: p.bestseller || false,
+          newArrival: p.new_arrival || false
+        }));
+      } catch (err) {
+        console.error('Failed to load products:', err);
+        products = [];
+      }
+      updateStats(); renderCatalog(); populateCategorySelect();
+    }
+
+    function updateStats() {
+      document.getElementById('stats-total-products').textContent = products.length;
+      document.getElementById('stats-total-stock').textContent = products.reduce((s, p) => s + p.stock, 0);
+      const oos = products.filter(p => p.stock === 0).length;
+      document.getElementById('stats-out-of-stock').textContent = oos;
+      document.getElementById('out-of-stock-card').classList.toggle('alert', oos > 0);
+    }
+
+    function renderCatalog() {
+      const tbody = document.getElementById('admin-table-body');
+      tbody.innerHTML = '';
+      let list = products;
+      if (activeSearch) {
+        const q = activeSearch.toLowerCase();
+        list = list.filter(p => p.name.toLowerCase().includes(q) || p.categoryLabel.toLowerCase().includes(q));
+      }
+      if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--gray-mid);">No products found.</td></tr>';
+        return;
+      }
+      list.forEach(p => {
+        const stockClass = p.stock === 0 ? 'danger' : p.stock <= 5 ? 'warning' : 'ok';
+        const sizesHTML = p.sizes.map(s => '<span class="badge-tag">' + s + '</span>').join(' ');
+        const colorsHTML = p.colors.map(c =>
+          '<span class="badge-tag" style="display:inline-flex;align-items:center;gap:4px;"><span class="color-swatch-mini" style="background:' + c.hex + ';"></span>' + c.name + '</span>'
+        ).join(' ');
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td><div class="table-thumbnail"><img src="' + p.image + '" alt="' + p.name + '" onerror="this.parentElement.style.background='#eee'"></div></td>' +
+          '<td><div class="prod-details"><span class="prod-name-title">' + p.name + '</span><span class="prod-cat-badge">' + p.categoryLabel + '</span></div></td>' +
+          '<td style="font-weight:600;">&#8377;' + p.price.toFixed(2) + '</td>' +
+          '<td><span class="stock-badge-pill ' + stockClass + '">' + p.stock + ' units</span></td>' +
+          '<td><div class="options-badges"><div class="options-badges-row"><span class="options-title-small">Sizes:</span> ' + sizesHTML + '</div><div class="options-badges-row" style="margin-top:4px;"><span class="options-title-small">Colors:</span> ' + colorsHTML + '</div></div></td>' +
+          '<td style="text-align:right;"><div class="table-actions" style="justify-content:flex-end;"><button class="btn-table-action edit" onclick="openEditForm('' + p.id + '')">Edit</button><button class="btn-table-action delete" onclick="confirmDeleteProduct('' + p.id + '')">Delete</button></div></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    function populateCategorySelect(selectedValue) {
+      const select = document.getElementById('form-category');
+      if (!select) return;
+      const customCats = [];
+      products.forEach(p => {
+        const isStd = STANDARD_CATEGORIES.some(sc => sc.value === p.category);
+        if (!isStd && p.category && !customCats.includes(p.category)) customCats.push(p.category);
+      });
+      let html = STANDARD_CATEGORIES.map(sc => '<option value="' + sc.value + '">' + sc.label + '</option>').join('\n');
+      if (customCats.length > 0) {
+        html += '\n<optgroup label="Custom Categories">';
+        customCats.forEach(cat => { html += '\n<option value="' + cat + '">' + getCategoryLabel(cat) + '</option>'; });
+        html += '\n</optgroup>';
+      }
+      html += '\n<option value="custom_category">[Add New Custom Category...]</option>';
+      select.innerHTML = html;
+      if (selectedValue) select.value = selectedValue;
+    }
+
+    const modal = document.getElementById('form-modal');
+    const overlay = document.getElementById('form-modal-overlay');
+    const form = document.getElementById('product-form');
+
+    function openAddForm() {
+      if (!isLoggedIn()) { openLoginModal(); return; }
+      editProductId = null;
+      document.getElementById('form-modal-title').textContent = 'Add New Product';
+      form.reset();
+      selectedImageFile = null; existingImageUrl = null;
+      document.getElementById('form-image-file').value = '';
+      document.getElementById('form-image-preview').src = '';
+      document.getElementById('form-image-preview-wrap').style.display = 'none';
+      populateCategorySelect();
+      document.getElementById('form-category-custom-wrap').style.display = 'none';
+      document.getElementById('form-category-custom').value = '';
+      document.getElementById('form-category-custom').required = false;
+      document.querySelectorAll('#sizes-choices input').forEach(c => { c.checked = ["XS","S","M","L","XL"].includes(c.value); });
+      document.querySelectorAll('#colors-choices input').forEach(c => { c.checked = ["Black|#000000","Off-White|#f5f5f0"].includes(c.value); });
+      modal.classList.add('active'); overlay.classList.add('active');
+    }
+
+    window.openEditForm = function(id) {
+      if (!isLoggedIn()) { openLoginModal(); return; }
+      editProductId = id;
+      const p = products.find(prod => prod.id === id);
+      if (!p) return;
+      document.getElementById('form-modal-title').textContent = 'Edit: ' + p.name;
+      document.getElementById('form-name').value = p.name;
+      document.getElementById('form-desc').value = p.description;
+      document.getElementById('form-price').value = p.price;
+      document.getElementById('form-oldprice').value = p.oldPrice || '';
+      document.getElementById('form-stock').value = p.stock;
+      const stdCats = STANDARD_CATEGORIES.map(sc => sc.value);
+      populateCategorySelect(p.category);
+      const catSelect = document.getElementById('form-category');
+      const customWrap = document.getElementById('form-category-custom-wrap');
+      const customInput = document.getElementById('form-category-custom');
+      if (stdCats.includes(p.category) || catSelect.value === p.category) {
+        customWrap.style.display = 'none'; customInput.value = ''; customInput.required = false;
+      } else {
+        catSelect.value = 'custom_category'; customWrap.style.display = 'block';
+        customInput.value = p.category; customInput.required = true;
+      }
+      selectedImageFile = null; existingImageUrl = p.image;
+      document.getElementById('form-image-file').value = '';
+      document.getElementById('form-image-preview').src = p.image;
+      document.getElementById('form-image-preview-wrap').style.display = 'block';
+      document.querySelectorAll('#sizes-choices input').forEach(cb => { cb.checked = p.sizes.includes(cb.value); });
+      document.querySelectorAll('#colors-choices input').forEach(cb => {
+        cb.checked = p.colors.some(c => c.name === cb.value.split('|')[0]);
+      });
+      modal.classList.add('active'); overlay.classList.add('active');
+    };
+
+    function closeModal() {
+      modal.classList.remove('active'); overlay.classList.remove('active');
+      editProductId = null; selectedImageFile = null; existingImageUrl = null;
+    }
+
+    window.openDeleteCatModal = function() {
+      if (!isLoggedIn()) { openLoginModal(); return; }
+      const select = document.getElementById('delete-cat-select');
+      select.innerHTML = '';
+      const cats = [...new Set(products.map(p => p.category))];
+      if (cats.length === 0) { alert('No active categories to remove.'); return; }
+      select.innerHTML = cats.map(cat =>
+        '<option value="' + cat + '">' + getCategoryLabel(cat) + ' (' + products.filter(p => p.category === cat).length + ' items)</option>'
+      ).join('');
+      document.getElementById('delete-cat-modal').classList.add('active');
+      document.getElementById('delete-cat-modal-overlay').classList.add('active');
+    };
+
+    window.closeDeleteCatModal = function() {
+      document.getElementById('delete-cat-modal').classList.remove('active');
+      document.getElementById('delete-cat-modal-overlay').classList.remove('active');
+    };
+
+    async function handleDeleteCatFormSubmit(e) {
+      e.preventDefault();
+      const cat = document.getElementById('delete-cat-select').value;
+      if (!cat) return;
+      const count = products.filter(p => p.category === cat).length;
+      if (!confirm('Delete category "' + getCategoryLabel(cat) + '" and all ' + count + ' products? Cannot be undone.')) return;
+      const deleteBtn = document.querySelector('#delete-cat-form button[type="submit"]');
+      deleteBtn.textContent = 'Deleting...'; deleteBtn.disabled = true;
+      try {
+        await apiFetch('/api/categories/' + cat, { method: 'DELETE' });
+        alert('Category deleted successfully.');
+        closeDeleteCatModal(); await loadProducts();
+      } catch (err) { alert('Failed: ' + err.message); }
+      finally { deleteBtn.textContent = 'Delete Category & Products'; deleteBtn.disabled = false; }
+    }
+
+    window.confirmDeleteProduct = async function(id) {
+      if (!isLoggedIn()) { openLoginModal(); return; }
+      const p = products.find(prod => prod.id === id);
+      if (!p || !confirm('Delete "' + p.name + '"? Cannot be undone.')) return;
+      try { await apiFetch('/api/products/' + id, { method: 'DELETE' }); await loadProducts(); }
+      catch (err) { alert('Failed: ' + err.message); }
+    };
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadProducts();
+
+      document.getElementById('form-image-file').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('Only JPG, PNG, WEBP.'); e.target.value = ''; return; }
+        if (file.size > 10 * 1024 * 1024) { alert('Max 10MB.'); e.target.value = ''; return; }
+        selectedImageFile = file;
+        const reader = new FileReader();
+        reader.onload = ev => { document.getElementById('form-image-preview').src = ev.target.result; document.getElementById('form-image-preview-wrap').style.display = 'block'; };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('form-category').addEventListener('change', () => {
+        const val = document.getElementById('form-category').value;
+        const wrap = document.getElementById('form-category-custom-wrap');
+        const input = document.getElementById('form-category-custom');
+        if (val === 'custom_category') { wrap.style.display = 'block'; input.required = true; input.focus(); }
+        else { wrap.style.display = 'none'; input.required = false; input.value = ''; }
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!isLoggedIn()) { openLoginModal(); return; }
+        let cat = document.getElementById('form-category').value;
+        if (cat === 'custom_category') {
+          cat = document.getElementById('form-category-custom').value.trim().toLowerCase();
+          if (!cat) { alert('Enter a custom category name.'); return; }
+        }
+        const sizes = []; document.querySelectorAll('#sizes-choices input:checked').forEach(c => sizes.push(c.value));
+        const colors = []; document.querySelectorAll('#colors-choices input:checked').forEach(c => { const [name, hex] = c.value.split('|'); colors.push({ name, hex }); });
+        if (sizes.length === 0) { alert('Select at least one size.'); return; }
+        if (colors.length === 0) { alert('Select at least one color.'); return; }
+        if (!selectedImageFile && !existingImageUrl) { alert('Upload a product image.'); return; }
+        const saveBtn = document.getElementById('btn-submit-form');
+        const origText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...'; saveBtn.disabled = true;
+        try {
+          const payload = {
+            name: document.getElementById('form-name').value.trim(),
+            description: document.getElementById('form-desc').value.trim(),
+            category: cat, price: parseFloat(document.getElementById('form-price').value),
+            old_price: document.getElementById('form-oldprice').value ? parseFloat(document.getElementById('form-oldprice').value) : null,
+            stock: parseInt(document.getElementById('form-stock').value),
+            sizes, colors, image_url: existingImageUrl || null, new_arrival: true
+          };
+          let savedProduct;
+          if (editProductId) {
+            const res = await apiFetch('/api/products/' + editProductId, { method: 'PUT', body: JSON.stringify(payload) });
+            savedProduct = res.product;
+          } else {
+            const res = await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(payload) });
+            savedProduct = res.product;
+          }
+          if (selectedImageFile && savedProduct) {
+            const fd = new FormData(); fd.append('image', selectedImageFile);
+            await apiFetch('/api/products/' + savedProduct.id + '/image', { method: 'POST', body: fd });
+          }
+          await loadProducts(); closeModal();
+        } catch (err) { alert('Failed: ' + err.message); }
+        finally { saveBtn.textContent = origText; saveBtn.disabled = false; }
+      });
+
+      document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.textContent = 'Signing in...'; btn.disabled = true;
+        try {
+          const res = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+          adminToken = res.token; localStorage.setItem('manner_admin_token', adminToken);
+          closeLoginModal();
+          document.getElementById('btn-admin-logout').style.display = 'inline-block';
+          document.getElementById('supabase-status-text').innerHTML =
+            '<span class="supabase-status-dot connected"></span> Logged in as <strong>' + res.admin.email + '</strong>';
+          await loadProducts();
+        } catch (err) { alert('Login failed: ' + err.message); }
+        finally { btn.textContent = 'Sign In'; btn.disabled = false; }
+      });
+
+      document.getElementById('btn-admin-logout').addEventListener('click', () => {
+        adminToken = null; localStorage.removeItem('manner_admin_token');
+        document.getElementById('btn-admin-logout').style.display = 'none';
+        document.getElementById('supabase-status-text').innerHTML = '<span class="supabase-status-dot disconnected"></span> Signed out.';
+        openLoginModal();
+      });
+
+      document.getElementById('btn-login-bypass').addEventListener('click', closeLoginModal);
+      document.getElementById('btn-add-product').addEventListener('click', openAddForm);
+      document.getElementById('form-modal-close').addEventListener('click', closeModal);
+      document.getElementById('form-modal-cancel').addEventListener('click', closeModal);
+      overlay.addEventListener('click', closeModal);
+      document.getElementById('delete-cat-form').addEventListener('submit', handleDeleteCatFormSubmit);
+      document.getElementById('btn-delete-category').addEventListener('click', openDeleteCatModal);
+      document.getElementById('delete-cat-modal-close').addEventListener('click', closeDeleteCatModal);
+      document.getElementById('delete-cat-modal-cancel').addEventListener('click', closeDeleteCatModal);
+      document.getElementById('delete-cat-modal-overlay').addEventListener('click', closeDeleteCatModal);
+      document.getElementById('admin-search').addEventListener('input', (e) => { activeSearch = e.target.value; renderCatalog(); });
+    });
+  </script>
+
+  <!-- Admin Sign-In Modal -->
+  <div class="admin-modal-overlay" id="login-modal-overlay"></div>
+  <div class="admin-modal" id="login-modal" style="max-width: 400px; width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); overflow: hidden;">
+    <div class="admin-modal-header" style="padding: 24px 32px; border-bottom: 1px solid rgba(0,0,0,0.06);">
+      <h3 class="admin-modal-title">Administrative Sign In</h3>
+    </div>
+    <form id="admin-login-form" onsubmit="return false;">
+      <div class="admin-modal-body" style="padding: 32px;">
+        <p style="font-size: 13px; color: var(--gray-mid); margin-bottom: 20px; line-height: 1.6;">
+          Sign in with your <strong>Manner admin credentials</strong> to manage products, categories, and orders.
+          Default: <code>admin@manner.com</code> / <code>manner2025</code>
+        </p>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label class="form-label" for="login-email">Email Address</label>
+          <input type="email" id="login-email" class="form-input" placeholder="admin@manner.com" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="••••••••" required>
+        </div>
+      </div>
+      <div class="admin-modal-footer" style="padding: 20px 32px; border-top: 1px solid rgba(0,0,0,0.06); background: var(--bg); display: flex; justify-content: flex-end; gap: 12px;">
+        <button type="button" class="btn-form-cancel" id="btn-login-bypass">Offline Mode</button>
+        <button type="submit" class="btn-primary btn-form-save" style="font-size:13px; font-weight:600; padding:10px 24px;">Sign In</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Delete Category Modal -->
+  <div class="admin-modal-overlay" id="delete-cat-modal-overlay"></div>
+  <div class="admin-modal" id="delete-cat-modal" style="max-width: 400px; width: 100%;">
+    <div class="admin-modal-header">
+      <h3 class="admin-modal-title">Remove Category</h3>
+      <button class="admin-modal-close" id="delete-cat-modal-close" aria-label="Close modal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="delete-cat-form" onsubmit="return false;">
+      <div class="admin-modal-body" style="padding: 24px 32px;">
+        <p style="font-size: 13px; color: var(--gray-mid); margin-bottom: 16px; line-height: 1.6;">
+          Select a category to delete. All products belonging to this category and their hosted images will be permanently removed.
+        </p>
+        <div class="form-group">
+          <label class="form-label" for="delete-cat-select">Select Category</label>
+          <select id="delete-cat-select" class="form-select" required>
+            <!-- Dynamic active categories -->
+          </select>
+        </div>
+      </div>
+      <div class="admin-modal-footer">
+        <button type="button" class="btn-form-cancel" id="delete-cat-modal-cancel">Cancel</button>
+        <button type="submit" class="btn-primary" style="background:#e74c3c; font-size:13px; font-weight:600; padding:10px 24px;">Delete Category & Products</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
