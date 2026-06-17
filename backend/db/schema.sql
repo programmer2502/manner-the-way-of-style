@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS products (
   price NUMERIC NOT NULL,
   old_price NUMERIC,
   image_url TEXT,
+  image_url_2 TEXT,
+  image_url_3 TEXT,
   sizes JSONB DEFAULT '[]',
   colors JSONB DEFAULT '[]',
   stock INTEGER DEFAULT 0,

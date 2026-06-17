@@ -38,6 +38,8 @@ function createTables() {
       price REAL NOT NULL,
       old_price REAL,
       image_url TEXT,
+      image_url_2 TEXT,
+      image_url_3 TEXT,
       sizes TEXT DEFAULT '[]',
       colors TEXT DEFAULT '[]',
       stock INTEGER DEFAULT 0,
@@ -71,6 +73,14 @@ function createTables() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Auto-migrate tables if existing DB lacks new columns
+  try {
+    db.run("ALTER TABLE products ADD COLUMN image_url_2 TEXT;");
+  } catch(e) {}
+  try {
+    db.run("ALTER TABLE products ADD COLUMN image_url_3 TEXT;");
+  } catch(e) {}
 }
 
 // Persist in-memory database to file

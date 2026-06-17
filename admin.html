@@ -316,6 +316,14 @@
       pointer-events: auto;
     }
     
+    #product-form {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex: 1;
+      min-height: 0;
+    }
+    
     .admin-modal-header {
       padding: 24px 32px;
       border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -566,7 +574,7 @@
           <textarea id="form-desc" class="form-textarea" required placeholder="Describe materials, cut, styling recommendations..."></textarea>
         </div>
 
-        <!-- Row: Category & Price -->
+        <!-- Row: Category & Image -->
         <div class="form-row-2">
           <div class="form-group">
             <label class="form-label" for="form-category">Category</label>
@@ -576,6 +584,7 @@
               <option value="childrens">Children's Wear</option>
               <option value="accessories">Accessories</option>
               <option value="event">Event Wear</option>
+              <option value="shoes">Shoes</option>
               <option value="custom_category">[Add Custom Category...]</option>
             </select>
             <div id="form-category-custom-wrap" style="display: none; margin-top: 8px;">
@@ -583,28 +592,32 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Product Image</label>
+            <label class="form-label">Primary Image (Required)</label>
             <div id="image-selection-container">
               <div id="image-file-uploader-wrap">
                 <input type="file" id="form-image-file" accept="image/png, image/jpeg, image/webp" class="form-input" style="padding: 6px 12px;">
               </div>
-              <div id="image-preset-selector-wrap" style="display: none;">
-                <select id="form-image-preset" class="form-select">
-                  <option value="product_palazzo.png">Palazzo (product_palazzo.png)</option>
-                  <option value="product_dress.png">Slip Dress (product_dress.png)</option>
-                  <option value="product_blazer.png">Boxy Blazer (product_blazer.png)</option>
-                  <option value="product_cargo.png">Cargo Pants (product_cargo.png)</option>
-                  <option value="product_chinos.png">Tapered Chinos (product_chinos.png)</option>
-                  <option value="product_shorts.png">Lounge Shorts (product_shorts.png)</option>
-                  <option value="product_midi.png">Midi Dress (product_midi.png)</option>
-                  <option value="product_vest.png">Puffer Vest (product_vest.png)</option>
-                  <option value="hero.png">Hero Cover (hero.png)</option>
-                  <option value="community.png">Community (community.png)</option>
-                </select>
-              </div>
             </div>
             <div id="form-image-preview-wrap" style="margin-top: 10px; display: none;">
               <img id="form-image-preview" src="" alt="Product preview" style="width: 80px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--bg-alt);">
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Images -->
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Product Image 2 (Optional)</label>
+            <input type="file" id="form-image-file-2" accept="image/png, image/jpeg, image/webp" class="form-input" style="padding: 6px 12px;">
+            <div id="form-image-preview-wrap-2" style="margin-top: 10px; display: none;">
+              <img id="form-image-preview-2" src="" alt="Image 2 preview" style="width: 80px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--bg-alt);">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Image 3 (Optional)</label>
+            <input type="file" id="form-image-file-3" accept="image/png, image/jpeg, image/webp" class="form-input" style="padding: 6px 12px;">
+            <div id="form-image-preview-wrap-3" style="margin-top: 10px; display: none;">
+              <img id="form-image-preview-3" src="" alt="Image 3 preview" style="width: 80px; height: 100px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--bg-alt);">
             </div>
           </div>
         </div>
@@ -631,17 +644,11 @@
         <div class="form-group">
           <label class="form-label">Available Sizes</label>
           <div class="choices-row" id="sizes-choices">
-            <label class="checkbox-wrap"><input type="checkbox" value="XS" checked> XS</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="S" checked> S</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="M" checked> M</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="L" checked> L</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="XL" checked> XL</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="XXL"> XXL</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="2T"> 2T</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="3T"> 3T</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="4T"> 4T</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="5"> 5</label>
-            <label class="checkbox-wrap"><input type="checkbox" value="6"> 6</label>
+            <!-- Dynamic sizes checkboxes rendered here -->
+          </div>
+          <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+            <input type="text" id="form-custom-size-input" class="form-input" style="flex:1; padding:6px 12px; font-size:12px;" placeholder="Add custom size (e.g. 8.5, UK 9)">
+            <button type="button" class="btn-primary" id="btn-add-custom-size" style="padding:6px 12px; font-size:12px;">+ Add Size</button>
           </div>
         </div>
 
@@ -668,19 +675,20 @@
         <button type="button" class="btn-form-cancel" id="form-modal-cancel">Cancel</button>
         <button type="submit" class="btn-primary btn-form-save" id="btn-submit-form">Save Product</button>
       </div>
-    </form>
-  </div>
-
-
-  <script>
+    </form>  <script>
     // --- Backend API Configuration ---
     const API_BASE = '';
     let adminToken = localStorage.getItem('manner_admin_token');
     let products = [];
     let editProductId = null;
     let activeSearch = '';
+    
     let selectedImageFile = null;
+    let selectedImageFile2 = null;
+    let selectedImageFile3 = null;
     let existingImageUrl = null;
+    let existingImageUrl2 = null;
+    let existingImageUrl3 = null;
 
     async function apiFetch(path, options = {}) {
       const headers = { ...(options.headers || {}) };
@@ -697,7 +705,8 @@
       { value: 'mens',        label: "Men's Wear" },
       { value: 'childrens',   label: "Children's Wear" },
       { value: 'accessories', label: 'Accessories' },
-      { value: 'event',       label: 'Event Wear' }
+      { value: 'event',       label: 'Event Wear' },
+      { value: 'shoes',       label: 'Shoes' }
     ];
 
     function getCategoryLabel(cat) {
@@ -745,6 +754,8 @@
           price: parseFloat(p.price),
           oldPrice: p.old_price ? parseFloat(p.old_price) : null,
           image: p.image_url,
+          image2: p.image_url_2,
+          image3: p.image_url_3,
           sizes: p.sizes || [], colors: p.colors || [],
           stock: parseInt(p.stock),
           bestseller: p.bestseller || false,
@@ -785,12 +796,12 @@
         ).join(' ');
         const tr = document.createElement('tr');
         tr.innerHTML =
-          '<td><div class="table-thumbnail"><img src="' + p.image + '" alt="' + p.name + '" onerror="this.parentElement.style.background='#eee'"></div></td>' +
+          '<td><div class="table-thumbnail"><img src="' + p.image + '" alt="' + p.name + '" onerror="this.parentElement.style.background=\'#eee\'"></div></td>' +
           '<td><div class="prod-details"><span class="prod-name-title">' + p.name + '</span><span class="prod-cat-badge">' + p.categoryLabel + '</span></div></td>' +
           '<td style="font-weight:600;">&#8377;' + p.price.toFixed(2) + '</td>' +
           '<td><span class="stock-badge-pill ' + stockClass + '">' + p.stock + ' units</span></td>' +
           '<td><div class="options-badges"><div class="options-badges-row"><span class="options-title-small">Sizes:</span> ' + sizesHTML + '</div><div class="options-badges-row" style="margin-top:4px;"><span class="options-title-small">Colors:</span> ' + colorsHTML + '</div></div></td>' +
-          '<td style="text-align:right;"><div class="table-actions" style="justify-content:flex-end;"><button class="btn-table-action edit" onclick="openEditForm('' + p.id + '')">Edit</button><button class="btn-table-action delete" onclick="confirmDeleteProduct('' + p.id + '')">Delete</button></div></td>';
+          '<td style="text-align:right;"><div class="table-actions" style="justify-content:flex-end;"><button class="btn-table-action edit" onclick="openEditForm(\'' + p.id + '\')">Edit</button><button class="btn-table-action delete" onclick="confirmDeleteProduct(\'' + p.id + '\')">Delete</button></div></td>';
         tbody.appendChild(tr);
       });
     }
@@ -818,20 +829,67 @@
     const overlay = document.getElementById('form-modal-overlay');
     const form = document.getElementById('product-form');
 
+    const CLOTHING_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "2T", "3T", "4T", "5", "6"];
+    const SHOE_SIZES = ["6", "7", "8", "9", "10", "11", "12"];
+
+    function renderSizesContainer(category, selectedSizes = []) {
+      const container = document.getElementById('sizes-choices');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      let sizesArray = [];
+      if (Array.isArray(selectedSizes)) {
+        sizesArray = selectedSizes;
+      } else if (typeof selectedSizes === 'string') {
+        try {
+          sizesArray = JSON.parse(selectedSizes);
+        } catch (e) {
+          sizesArray = selectedSizes.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+      if (!Array.isArray(sizesArray)) {
+        sizesArray = [];
+      }
+      
+      const defaultSizes = category === 'shoes' ? SHOE_SIZES : CLOTHING_SIZES;
+      const allUniqueSizes = [...new Set([...defaultSizes, ...sizesArray])];
+      
+      allUniqueSizes.forEach(size => {
+        const isChecked = sizesArray.includes(size) || (sizesArray.length === 0 && defaultSizes.slice(0, 5).includes(size));
+        const label = document.createElement('label');
+        label.className = 'checkbox-wrap';
+        label.innerHTML = `<input type="checkbox" value="${size}" ${isChecked ? 'checked' : ''}> ${size}`;
+        container.appendChild(label);
+      });
+    }
+
     function openAddForm() {
       if (!isLoggedIn()) { openLoginModal(); return; }
       editProductId = null;
       document.getElementById('form-modal-title').textContent = 'Add New Product';
       form.reset();
-      selectedImageFile = null; existingImageUrl = null;
+      
+      selectedImageFile = null; selectedImageFile2 = null; selectedImageFile3 = null;
+      existingImageUrl = null; existingImageUrl2 = null; existingImageUrl3 = null;
+      
       document.getElementById('form-image-file').value = '';
       document.getElementById('form-image-preview').src = '';
       document.getElementById('form-image-preview-wrap').style.display = 'none';
+
+      document.getElementById('form-image-file-2').value = '';
+      document.getElementById('form-image-preview-2').src = '';
+      document.getElementById('form-image-preview-wrap-2').style.display = 'none';
+
+      document.getElementById('form-image-file-3').value = '';
+      document.getElementById('form-image-preview-3').src = '';
+      document.getElementById('form-image-preview-wrap-3').style.display = 'none';
+      
       populateCategorySelect();
       document.getElementById('form-category-custom-wrap').style.display = 'none';
       document.getElementById('form-category-custom').value = '';
       document.getElementById('form-category-custom').required = false;
-      document.querySelectorAll('#sizes-choices input').forEach(c => { c.checked = ["XS","S","M","L","XL"].includes(c.value); });
+      
+      renderSizesContainer('womens', []);
       document.querySelectorAll('#colors-choices input').forEach(c => { c.checked = ["Black|#000000","Off-White|#f5f5f0"].includes(c.value); });
       modal.classList.add('active'); overlay.classList.add('active');
     }
@@ -858,20 +916,52 @@
         catSelect.value = 'custom_category'; customWrap.style.display = 'block';
         customInput.value = p.category; customInput.required = true;
       }
-      selectedImageFile = null; existingImageUrl = p.image;
+      
+      selectedImageFile = null; selectedImageFile2 = null; selectedImageFile3 = null;
+      existingImageUrl = p.image; existingImageUrl2 = p.image2; existingImageUrl3 = p.image3;
+      
       document.getElementById('form-image-file').value = '';
-      document.getElementById('form-image-preview').src = p.image;
-      document.getElementById('form-image-preview-wrap').style.display = 'block';
-      document.querySelectorAll('#sizes-choices input').forEach(cb => { cb.checked = p.sizes.includes(cb.value); });
+      document.getElementById('form-image-preview').src = p.image || '';
+      document.getElementById('form-image-preview-wrap').style.display = p.image ? 'block' : 'none';
+
+      document.getElementById('form-image-file-2').value = '';
+      document.getElementById('form-image-preview-2').src = p.image2 || '';
+      document.getElementById('form-image-preview-wrap-2').style.display = p.image2 ? 'block' : 'none';
+
+      document.getElementById('form-image-file-3').value = '';
+      document.getElementById('form-image-preview-3').src = p.image3 || '';
+      document.getElementById('form-image-preview-wrap-3').style.display = p.image3 ? 'block' : 'none';
+      
+      let sizesArray = [];
+      if (Array.isArray(p.sizes)) {
+        sizesArray = p.sizes;
+      } else if (typeof p.sizes === 'string') {
+        try { sizesArray = JSON.parse(p.sizes); } catch (e) { sizesArray = []; }
+      }
+      renderSizesContainer(p.category, sizesArray);
+
+      let colorsArray = [];
+      if (Array.isArray(p.colors)) {
+        colorsArray = p.colors;
+      } else if (typeof p.colors === 'string') {
+        try { colorsArray = JSON.parse(p.colors); } catch (e) { colorsArray = []; }
+      }
+      
       document.querySelectorAll('#colors-choices input').forEach(cb => {
-        cb.checked = p.colors.some(c => c.name === cb.value.split('|')[0]);
+        cb.checked = Array.isArray(colorsArray) && colorsArray.some(c => {
+          if (!c) return false;
+          const name = typeof c === 'string' ? c.split('|')[0] : (c.name || '');
+          return name === cb.value.split('|')[0];
+        });
       });
       modal.classList.add('active'); overlay.classList.add('active');
     };
 
     function closeModal() {
       modal.classList.remove('active'); overlay.classList.remove('active');
-      editProductId = null; selectedImageFile = null; existingImageUrl = null;
+      editProductId = null; 
+      selectedImageFile = null; selectedImageFile2 = null; selectedImageFile3 = null;
+      existingImageUrl = null; existingImageUrl2 = null; existingImageUrl3 = null;
     }
 
     window.openDeleteCatModal = function() {
@@ -920,6 +1010,26 @@
       await checkAuth();
       await loadProducts();
 
+      // Custom Sizes manager
+      document.getElementById('btn-add-custom-size').addEventListener('click', () => {
+        const input = document.getElementById('form-custom-size-input');
+        const sizeVal = input.value.trim();
+        if (!sizeVal) return;
+        
+        const existing = [...document.querySelectorAll('#sizes-choices input')].map(c => c.value);
+        if (existing.includes(sizeVal)) {
+          const cb = [...document.querySelectorAll('#sizes-choices input')].find(c => c.value === sizeVal);
+          if (cb) cb.checked = true;
+        } else {
+          const container = document.getElementById('sizes-choices');
+          const label = document.createElement('label');
+          label.className = 'checkbox-wrap';
+          label.innerHTML = `<input type="checkbox" value="${sizeVal}" checked> ${sizeVal}`;
+          container.appendChild(label);
+        }
+        input.value = '';
+      });
+
       document.getElementById('form-image-file').addEventListener('change', (e) => {
         const file = e.target.files[0]; if (!file) return;
         if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('Only JPG, PNG, WEBP.'); e.target.value = ''; return; }
@@ -930,12 +1040,34 @@
         reader.readAsDataURL(file);
       });
 
+      document.getElementById('form-image-file-2').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('Only JPG, PNG, WEBP.'); e.target.value = ''; return; }
+        if (file.size > 10 * 1024 * 1024) { alert('Max 10MB.'); e.target.value = ''; return; }
+        selectedImageFile2 = file;
+        const reader = new FileReader();
+        reader.onload = ev => { document.getElementById('form-image-preview-2').src = ev.target.result; document.getElementById('form-image-preview-wrap-2').style.display = 'block'; };
+        reader.readAsDataURL(file);
+      });
+
+      document.getElementById('form-image-file-3').addEventListener('change', (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('Only JPG, PNG, WEBP.'); e.target.value = ''; return; }
+        if (file.size > 10 * 1024 * 1024) { alert('Max 10MB.'); e.target.value = ''; return; }
+        selectedImageFile3 = file;
+        const reader = new FileReader();
+        reader.onload = ev => { document.getElementById('form-image-preview-3').src = ev.target.result; document.getElementById('form-image-preview-wrap-3').style.display = 'block'; };
+        reader.readAsDataURL(file);
+      });
+
       document.getElementById('form-category').addEventListener('change', () => {
         const val = document.getElementById('form-category').value;
         const wrap = document.getElementById('form-category-custom-wrap');
         const input = document.getElementById('form-category-custom');
         if (val === 'custom_category') { wrap.style.display = 'block'; input.required = true; input.focus(); }
         else { wrap.style.display = 'none'; input.required = false; input.value = ''; }
+        
+        renderSizesContainer(val, []);
       });
 
       form.addEventListener('submit', async (e) => {
@@ -950,7 +1082,7 @@
         const colors = []; document.querySelectorAll('#colors-choices input:checked').forEach(c => { const [name, hex] = c.value.split('|'); colors.push({ name, hex }); });
         if (sizes.length === 0) { alert('Select at least one size.'); return; }
         if (colors.length === 0) { alert('Select at least one color.'); return; }
-        if (!selectedImageFile && !existingImageUrl) { alert('Upload a product image.'); return; }
+        if (!selectedImageFile && !existingImageUrl) { alert('Upload a primary product image.'); return; }
         const saveBtn = document.getElementById('btn-submit-form');
         const origText = saveBtn.textContent;
         saveBtn.textContent = 'Saving...'; saveBtn.disabled = true;
@@ -961,7 +1093,11 @@
             category: cat, price: parseFloat(document.getElementById('form-price').value),
             old_price: document.getElementById('form-oldprice').value ? parseFloat(document.getElementById('form-oldprice').value) : null,
             stock: parseInt(document.getElementById('form-stock').value),
-            sizes, colors, image_url: existingImageUrl || null, new_arrival: true
+            sizes, colors,
+            image_url: existingImageUrl || null,
+            image_url_2: existingImageUrl2 || null,
+            image_url_3: existingImageUrl3 || null,
+            new_arrival: true
           };
           let savedProduct;
           if (editProductId) {
@@ -971,10 +1107,20 @@
             const res = await apiFetch('/api/products', { method: 'POST', body: JSON.stringify(payload) });
             savedProduct = res.product;
           }
-          if (selectedImageFile && savedProduct) {
-            const fd = new FormData(); fd.append('image', selectedImageFile);
-            await apiFetch('/api/products/' + savedProduct.id + '/image', { method: 'POST', body: fd });
+          
+          // Upload files sequentially for slots
+          const imagesToUpload = [
+            { file: selectedImageFile, slot: '1' },
+            { file: selectedImageFile2, slot: '2' },
+            { file: selectedImageFile3, slot: '3' }
+          ].filter(item => item.file);
+
+          for (const item of imagesToUpload) {
+            const fd = new FormData();
+            fd.append('image', item.file);
+            await apiFetch(`/api/products/${savedProduct.id}/image/${item.slot}`, { method: 'POST', body: fd });
           }
+          
           await loadProducts(); closeModal();
         } catch (err) { alert('Failed: ' + err.message); }
         finally { saveBtn.textContent = origText; saveBtn.disabled = false; }

@@ -56,23 +56,27 @@ app.use((err, req, res, next) => {
 
 // ─── Start ────────────────────────────────────────────────────
 async function start() {
-  // Test Supabase connection
+  // Test connection or load local DB
   let supabaseReady = false;
+  const isLocal = process.env.DB_MODE === 'local';
   try {
-    const { getSupabaseClient } = require('./db/supabase_client');
+    const { getSupabaseClient, initLocalDb } = require('./db/supabase_client');
+    if (isLocal) {
+      await initLocalDb();
+    }
     const sb = getSupabaseClient();
     const { data, error } = await sb.from('products').select('id').limit(1);
     if (error) {
-      if (error.code === 'PGRST205' || error.message.includes('schema cache')) {
+      if (!isLocal && (error.code === 'PGRST205' || error.message.includes('schema cache'))) {
         console.log('\n⚠️  Supabase tables not found.');
         console.log('   Run the schema SQL first — see: backend/db/schema.sql');
         console.log('   URL: https://supabase.com/dashboard/project/qrhfasizkcrkckvpycts/sql/new\n');
       } else {
-        console.log('\n⚠️  Supabase warning:', error.message, '\n');
+        console.log('\n⚠️  Database warning:', error.message, '\n');
       }
     } else {
       supabaseReady = true;
-      console.log('✓ Supabase connected —', data.length, 'products found');
+      console.log('✓ Database connected —', data.length, 'products found');
       // Auto-seed if empty
       if (data.length === 0) {
         console.log('  Seeding default products...');
@@ -80,20 +84,25 @@ async function start() {
       }
     }
   } catch(err) {
-    console.warn('\n⚠️  Supabase init failed:', err.message);
+    console.warn('\n⚠️  Database init failed:', err.message);
   }
 
   app.listen(PORT, () => {
-    const status = supabaseReady ? '✓ Supabase Connected' : '⚠ Supabase tables needed (see below)';
+    let dbStatus = '⚠ Supabase tables needed (see below)';
+    if (isLocal) {
+      dbStatus = '✓ Local SQLite Connected';
+    } else if (supabaseReady) {
+      dbStatus = '✓ Supabase Connected';
+    }
     console.log('\n╔══════════════════════════════════════════════════╗');
-    console.log('║        MANNER Backend — Node.js + Supabase       ║');
+    console.log('║        MANNER Backend — Node.js + ' + (isLocal ? 'SQLite' : 'Supabase').padEnd(8) + '       ║');
     console.log('╠══════════════════════════════════════════════════╣');
     console.log('║  ✓ Storefront:  http://localhost:' + PORT + '          ║');
     console.log('║  ✓ Admin:       http://localhost:' + PORT + '/admin    ║');
     console.log('║  ✓ API:         http://localhost:' + PORT + '/api      ║');
-    console.log('║  DB: ' + status.padEnd(43) + '║');
+    console.log('║  DB: ' + dbStatus.padEnd(43) + '║');
     console.log('╚══════════════════════════════════════════════════╝');
-    if (!supabaseReady) {
+    if (!isLocal && !supabaseReady) {
       console.log('\n  📋 To complete setup, run schema.sql in Supabase:');
       console.log('  https://supabase.com/dashboard/project/qrhfasizkcrkckvpycts/sql/new\n');
     } else {

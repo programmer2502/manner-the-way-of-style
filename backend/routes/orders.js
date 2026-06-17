@@ -51,10 +51,6 @@ router.post('/', async (req, res) => {
 
     // Deduct stock for each item
     for (const item of orderItems) {
-      await supabase.from('products')
-        .update({ stock: supabase.rpc ? undefined : 0, updated_at: new Date().toISOString() })
-        .eq('id', item.id);
-
       // Use raw decrement approach
       const { data: prod } = await supabase.from('products').select('stock').eq('id', item.id).single();
       if (prod) {

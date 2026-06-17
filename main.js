@@ -177,7 +177,8 @@ function getCategoryLabel(cat) {
     mens: "Men's Wear",
     childrens: "Children's Wear",
     accessories: "Accessories",
-    event: "Event Wear"
+    event: "Event Wear",
+    shoes: "Shoes"
   };
   if (catLabels[cat]) return catLabels[cat];
   return cat.charAt(0).toUpperCase() + cat.slice(1);
@@ -206,6 +207,8 @@ async function loadStateAsync() {
       price: parseFloat(p.price),
       oldPrice: p.old_price ? parseFloat(p.old_price) : null,
       image: p.image_url,
+      image2: p.image_url_2,
+      image3: p.image_url_3,
       sizes: p.sizes || ["XS", "S", "M", "L", "XL"],
       colors: p.colors || [{ name: "Black", hex: "#000000" }],
       stock: parseInt(p.stock),
@@ -1016,9 +1019,25 @@ window.openQuickView = function(productId) {
 
   const isWishlisted = state.wishlist.includes(product.id);
 
+  // Gallery thumbnails markup
+  let galleryHTML = `<img id="main-modal-img" src="${getOptimizedImageUrl(product.image, 600)}" onerror="this.onerror=null; this.src='${product.image}';" alt="${product.name}">`;
+  let thumbnailsHTML = '';
+  
+  const allImages = [product.image, product.image2, product.image3].filter(Boolean);
+  if (allImages.length > 1) {
+    thumbnailsHTML = `
+      <div class="modal-thumbnails" style="display: flex; gap: 8px; margin-top: 10px;">
+        ${allImages.map((img, idx) => `
+          <img src="${getOptimizedImageUrl(img, 120)}" onerror="this.onerror=null; this.src='${img}';" style="width: 50px; height: 60px; object-fit: cover; cursor: pointer; border: 1.5px solid ${idx === 0 ? 'var(--accent)' : 'transparent'}; border-radius: var(--radius-sm);" onclick="changeModalMainImage('${img}', this)">
+        `).join('')}
+      </div>
+    `;
+  }
+
   content.innerHTML = `
-    <div class="modal-gallery">
-      <img src="${getOptimizedImageUrl(product.image, 600)}" onerror="this.onerror=null; this.src='${product.image}';" alt="${product.name}">
+    <div class="modal-gallery" style="display: flex; flex-direction: column;">
+      ${galleryHTML}
+      ${thumbnailsHTML}
     </div>
     <div class="modal-details">
       <div class="modal-category">${product.categoryLabel}</div>
@@ -1069,6 +1088,13 @@ window.openQuickView = function(productId) {
 
   modal.classList.add('active');
   overlay.classList.add('active');
+};
+
+window.changeModalMainImage = function(imgSrc, thumb) {
+  document.getElementById('main-modal-img').src = imgSrc;
+  const parent = thumb.parentElement;
+  parent.querySelectorAll('img').forEach(img => img.style.borderColor = 'transparent');
+  thumb.style.borderColor = 'var(--accent)';
 };
 
 window.selectModalSize = function(size, btn) {
@@ -1122,11 +1148,11 @@ window.modalWishlistToggle = function(productId, btn) {
   renderProducts();
 };
 
-// ─── Simulation Checkout ───
+// ─── WhatsApp Checkout ───
 async function handleCheckout() {
   if (state.cart.length === 0) return;
 
-  // Deduct stock limits
+  // Verify stock locally first
   let checkoutValid = true;
   const tempProducts = JSON.parse(JSON.stringify(state.products));
 
@@ -1143,22 +1169,39 @@ async function handleCheckout() {
     }
   }
 
-  if (supabaseClient) {
-    try {
-      for (const item of state.cart) {
-        const product = tempProducts.find(p => p.id === item.id);
-        const { error } = await supabaseClient
-          .from('products')
-          .update({ stock: product.stock })
-          .eq('id', product.id);
-
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.error("Failed to update stock in Supabase:", err);
-      alert("Checkout failed. Error updating stock in database. Please try again.");
-      return;
+  // Construct WhatsApp order details message
+  let message = `Hello, I'd like to place an order from Manner:\n\n`;
+  let total = 0;
+  state.cart.forEach((item, idx) => {
+    const product = state.products.find(p => p.id === item.id);
+    if (product) {
+      const lineTotal = product.price * item.quantity;
+      total += lineTotal;
+      message += `${idx + 1}. *${product.name}*\n`;
+      message += `   Size: ${item.size}\n`;
+      message += `   Color: ${item.color}\n`;
+      message += `   Qty: ${item.quantity}\n`;
+      message += `   Price: ₹${product.price.toFixed(2)} each (Subtotal: ₹${lineTotal.toFixed(2)})\n\n`;
     }
+  });
+  message += `*Total Amount: ₹${total.toFixed(2)}*\n\n`;
+  message += `Please confirm my order.`;
+
+  const encodedText = encodeURIComponent(message);
+  const whatsappUrl = `https://wa.me/918310681424?text=${encodedText}`;
+
+  // Call API to record order in backend and update stocks
+  try {
+    const orderPayload = {
+      customer_name: 'WhatsApp Checkout',
+      customer_email: 'whatsapp@manner.com',
+      customer_phone: '+91-8310681424',
+      items: state.cart.map(item => ({ id: item.id, quantity: item.quantity, size: item.size, color: item.color })),
+      payment_method: 'whatsapp'
+    };
+    await apiFetch('/api/orders', { method: 'POST', body: JSON.stringify(orderPayload) });
+  } catch (err) {
+    console.warn("Failed to record order in backend, proceeding to WhatsApp anyway:", err.message);
   }
 
   // Commit transaction to state
@@ -1171,9 +1214,10 @@ async function handleCheckout() {
   renderCartDrawer();
   renderProducts();
 
-  alert("✓ Purchase Successful!\n\nYour order has been placed successfully. Available product stocks have been updated, and your cart has been cleared. Thank you for choosing Manner!");
-
   // Close Cart Drawer
   document.getElementById('cart-drawer').classList.remove('active');
   document.getElementById('cart-drawer-overlay').classList.remove('active');
+
+  // Open WhatsApp link
+  window.open(whatsappUrl, '_blank');
 }

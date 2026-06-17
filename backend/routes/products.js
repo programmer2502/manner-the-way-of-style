@@ -66,7 +66,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/products
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { name, description, category, price, old_price, sizes, colors, stock, bestseller, new_arrival, image_url } = req.body;
+    const { name, description, category, price, old_price, sizes, colors, stock, bestseller, new_arrival, image_url, image_url_2, image_url_3 } = req.body;
     if (!name || !category || price === undefined) {
       return res.status(400).json({ error: 'Name, category, and price are required.' });
     }
@@ -78,6 +78,8 @@ router.post('/', requireAuth, async (req, res) => {
       price: parseFloat(price),
       old_price: old_price ? parseFloat(old_price) : null,
       image_url: image_url || null,
+      image_url_2: image_url_2 || null,
+      image_url_3: image_url_3 || null,
       sizes: sizes || [],
       colors: colors || [],
       stock: parseInt(stock) || 0,
@@ -99,7 +101,7 @@ router.put('/:id', requireAuth, async (req, res) => {
     const { data: existing, error: fetchErr } = await supabase.from('products').select('*').eq('id', req.params.id).single();
     if (fetchErr || !existing) return res.status(404).json({ error: 'Product not found.' });
 
-    const { name, description, category, price, old_price, image_url, sizes, colors, stock, bestseller, new_arrival } = req.body;
+    const { name, description, category, price, old_price, image_url, image_url_2, image_url_3, sizes, colors, stock, bestseller, new_arrival } = req.body;
     const updates = {
       name: name ?? existing.name,
       description: description ?? existing.description,
@@ -107,6 +109,8 @@ router.put('/:id', requireAuth, async (req, res) => {
       price: price !== undefined ? parseFloat(price) : existing.price,
       old_price: old_price !== undefined ? (old_price ? parseFloat(old_price) : null) : existing.old_price,
       image_url: image_url !== undefined ? image_url : existing.image_url,
+      image_url_2: image_url_2 !== undefined ? image_url_2 : existing.image_url_2,
+      image_url_3: image_url_3 !== undefined ? image_url_3 : existing.image_url_3,
       sizes: sizes !== undefined ? sizes : existing.sizes,
       colors: colors !== undefined ? colors : existing.colors,
       stock: stock !== undefined ? parseInt(stock) : existing.stock,
@@ -130,11 +134,16 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const { data: existing } = await supabase.from('products').select('*').eq('id', req.params.id).single();
     if (!existing) return res.status(404).json({ error: 'Product not found.' });
 
-    // Delete local image if uploaded
-    if (existing.image_url && existing.image_url.startsWith('/images/product_')) {
-      const fp = path.join(__dirname, '..', '..', existing.image_url);
-      if (fs.existsSync(fp)) fs.unlinkSync(fp);
-    }
+    // Delete local images if uploaded
+    const localImages = [existing.image_url, existing.image_url_2, existing.image_url_3];
+    localImages.forEach(img => {
+      if (img && img.startsWith('/images/product_')) {
+        const fp = path.join(__dirname, '..', '..', img);
+        if (fs.existsSync(fp)) {
+          try { fs.unlinkSync(fp); } catch(e) {}
+        }
+      }
+    });
 
     const { error } = await supabase.from('products').delete().eq('id', req.params.id);
     if (error) throw error;
@@ -144,18 +153,30 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/products/:id/image — Upload image, also upload to Supabase Storage
-router.post('/:id/image', requireAuth, upload.single('image'), async (req, res) => {
+// Legacy compatibility redirect to slot 1
+router.post('/:id/image', requireAuth, (req, res, next) => {
+  req.url = req.url + '/1';
+  next();
+});
+
+// POST /api/products/:id/image/:slot — Upload image for slot 1, 2, or 3, also upload to Supabase Storage
+router.post('/:id/image/:slot', requireAuth, upload.single('image'), async (req, res) => {
   try {
+    const slot = req.params.slot; // '1', '2', or '3'
+    const imageField = slot === '3' ? 'image_url_3' : slot === '2' ? 'image_url_2' : 'image_url';
+
     const supabase = getSupabaseClient();
     const { data: existing } = await supabase.from('products').select('*').eq('id', req.params.id).single();
     if (!existing) return res.status(404).json({ error: 'Product not found.' });
     if (!req.file) return res.status(400).json({ error: 'No image file uploaded.' });
 
-    // Delete old local image
-    if (existing.image_url && existing.image_url.startsWith('/images/product_')) {
-      const oldPath = path.join(__dirname, '..', '..', existing.image_url);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    // Delete old local image for this specific field
+    const oldUrl = existing[imageField];
+    if (oldUrl && oldUrl.startsWith('/images/product_')) {
+      const oldPath = path.join(__dirname, '..', '..', oldUrl);
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch (e) { console.warn('Error deleting old file:', e.message); }
+      }
     }
 
     let imageUrl = `/images/${req.file.filename}`;
@@ -164,7 +185,8 @@ router.post('/:id/image', requireAuth, upload.single('image'), async (req, res) 
     try {
       const fileBuffer = fs.readFileSync(req.file.path);
       const ext = path.extname(req.file.originalname).toLowerCase();
-      const storagePath = `products/${req.params.id}${ext}`;
+      // append slot to storage path to keep them unique
+      const storagePath = `products/${req.params.id}_slot${slot}${ext}`;
       const { data: storageData, error: storageError } = await supabase.storage
         .from('products')
         .upload(storagePath, fileBuffer, {
@@ -179,8 +201,11 @@ router.post('/:id/image', requireAuth, upload.single('image'), async (req, res) 
       console.warn('Supabase Storage upload failed, using local path:', storageErr.message);
     }
 
+    const updatePayload = { updated_at: new Date().toISOString() };
+    updatePayload[imageField] = imageUrl;
+
     const { error } = await supabase.from('products')
-      .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq('id', req.params.id);
     if (error) throw error;
 
