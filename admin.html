@@ -314,6 +314,7 @@
       transform: translate(-50%, -50%) scale(1);
       opacity: 1;
       pointer-events: auto;
+      height: 85vh;
     }
     
     #product-form {
@@ -378,6 +379,8 @@
       color: var(--gray-mid);
     }
     .form-input, .form-select, .form-textarea {
+      width: 100%;
+      box-sizing: border-box;
       padding: 10px 16px;
       border: 1.5px solid var(--bg-alt);
       border-radius: var(--radius-sm);
@@ -1151,7 +1154,15 @@
         openLoginModal();
       });
 
-      document.getElementById('btn-login-bypass').addEventListener('click', closeLoginModal);
+      document.getElementById('btn-login-bypass').addEventListener('click', () => {
+        adminToken = 'offline_mode_token';
+        localStorage.setItem('manner_admin_token', adminToken);
+        closeLoginModal();
+        document.getElementById('btn-admin-logout').style.display = 'inline-block';
+        document.getElementById('supabase-status-text').innerHTML =
+          '<span class="supabase-status-dot connected"></span> Local/Offline Mode enabled.';
+        loadProducts();
+      });
       document.getElementById('btn-add-product').addEventListener('click', openAddForm);
       document.getElementById('form-modal-close').addEventListener('click', closeModal);
       document.getElementById('form-modal-cancel').addEventListener('click', closeModal);

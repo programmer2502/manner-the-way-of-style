@@ -2,6 +2,12 @@
 const jwt = require('jsonwebtoken');
 
 function requireAuth(req, res, next) {
+  // Bypass authentication if running in local database mode
+  if (process.env.DB_MODE === 'local') {
+    req.admin = { id: 'local-admin-id', email: 'admin@manner.com', name: 'Local Administrator' };
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authorization token required.' });
